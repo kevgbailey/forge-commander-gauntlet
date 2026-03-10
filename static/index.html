@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forge Gauntlet — Commander AI Tournament</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cinzel+Decorative:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   RESET & VARIABLES
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary:    #0a0a0f;
+  --bg-secondary:  #0f0f1a;
+  --bg-card:       #13131f;
+  --bg-card-hover: #1a1a2e;
+  --border-dim:    #1e1e35;
+  --border-glow:   #3a2a6e;
+  --gold:          #c9a84c;
+  --gold-bright:   #f0c96a;
+  --gold-dim:      #7a6030;
+  --purple:        #6b3fa0;
+  --purple-bright: #9b5fd4;
+  --purple-dim:    #2d1a50;
+  --green:         #3aad6b;
+  --green-dim:     #1a4a30;
+  --yellow:        #e8c84a;
+  --yellow-dim:    #4a3a10;
+  --red:           #d64040;
+  --red-dim:       #4a1010;
+  --text-primary:  #e8e4d8;
+  --text-secondary:#9890a8;
+  --text-muted:    #5a5470;
+  --radius-sm:     6px;
+  --radius-md:     10px;
+  --radius-lg:     16px;
+  --shadow-card:   0 4px 24px rgba(0,0,0,0.6);
+  --shadow-glow:   0 0 20px rgba(107,63,160,0.35);
+  --shadow-gold:   0 0 20px rgba(201,168,76,0.4);
+  --transition:    0.25s cubic-bezier(0.4,0,0.2,1);
+}
+
+html, body {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* Subtle animated background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 40% at 20% 10%, rgba(107,63,160,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 30% at 80% 90%, rgba(50,30,100,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 60% at 50% 50%, rgba(20,10,40,0.3) 0%, transparent 80%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border-glow); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--purple); }
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+#app {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+#top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+#header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 28px;
+  background: linear-gradient(180deg, rgba(20,15,40,0.95) 0%, rgba(10,10,15,0.85) 100%);
+  border-bottom: 1px solid var(--border-dim);
+  backdrop-filter: blur(12px);
+}
+
+#header::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-dim), var(--purple), var(--gold-dim), transparent);
+  opacity: 0.6;
+}
+
+.header-logo {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: linear-gradient(135deg, var(--gold-bright) 0%, var(--gold) 50%, var(--gold-dim) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
+  flex-shrink: 0;
+}
+
+.header-logo span {
+  font-size: 20px;
+  margin-right: 6px;
+}
+
+.header-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: 1px solid;
+  transition: var(--transition);
+}
+
+.status-badge::before {
+  content: '';
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-idle    { color: var(--text-muted);    border-color: var(--border-dim);    background: rgba(30,30,53,0.5); }
+.status-idle::before { background: var(--text-muted); }
+
+.status-fetching { color: var(--yellow);       border-color: var(--yellow-dim);   background: rgba(74,58,16,0.4); animation: pulse-badge 1.5s infinite; }
+.status-fetching::before { background: var(--yellow); animation: pulse-dot 1.5s infinite; }
+
+.status-running { color: var(--purple-bright); border-color: var(--border-glow);  background: rgba(45,26,80,0.5); animation: pulse-badge 2s infinite; }
+.status-running::before { background: var(--purple-bright); animation: pulse-dot 2s infinite; }
+
+.status-complete { color: var(--gold-bright);  border-color: var(--gold-dim);     background: rgba(60,40,10,0.4); }
+.status-complete::before { background: var(--gold-bright); }
+
+@keyframes pulse-badge { 0%,100%{opacity:1} 50%{opacity:0.75} }
+@keyframes pulse-dot   { 0%,100%{transform:scale(1)} 50%{transform:scale(1.4)} }
+
+.ws-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ws-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: var(--transition);
+}
+
+.ws-dot.connected    { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.ws-dot.disconnected { background: var(--red); }
+.ws-dot.reconnecting { background: var(--yellow); animation: pulse-dot 1s infinite; }
+
+/* Progress bar */
+#progress-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 24px;
+  background: rgba(10,10,20,0.95);
+  border-bottom: 1px solid var(--border-dim);
+}
+#progress-bar-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 99px;
+  overflow: hidden;
+}
+#progress-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--purple-bright), var(--gold-bright));
+  border-radius: 99px;
+  transition: width 0.6s ease;
+  box-shadow: 0 0 8px rgba(168,85,247,0.5);
+}
+#progress-bar-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 180px;
+  text-align: right;
+}
+
+.header-round-label {
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  padding: 4px 10px;
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--radius-sm);
+  background: rgba(60,40,10,0.3);
+}
+
+/* ============================================================
+   MAIN CONTENT
+   ============================================================ */
+#main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  grid-template-rows: 1fr;
+  gap: 0;
+  min-height: 0;
+}
+
+/* ============================================================
+   PANELS
+   ============================================================ */
+.panel {
+  padding: 20px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border-dim);
+}
+
+#panel-bracket { grid-column: 1; }
+#panel-feed    { grid-column: 2; border-right: none; border-left: 1px solid var(--border-dim); }
+
+.panel-title {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-title::before {
+  content: '';
+  width: 3px; height: 14px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--purple), var(--gold-dim));
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   ROUND SECTIONS
+   ============================================================ */
+.round-section {
+  margin-bottom: 16px;
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  overflow: hidden;
+  transition: var(--transition);
+}
+
+.round-section.active {
+  border-color: var(--border-glow);
+  box-shadow: 0 0 16px rgba(107,63,160,0.2), inset 0 0 30px rgba(107,63,160,0.04);
+}
+
+.round-section.complete {
+  border-color: rgba(107,63,160,0.3);
+  opacity: 0.85;
+}
+
+.round-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+  background: linear-gradient(90deg, rgba(20,15,40,0.6) 0%, transparent 100%);
+  transition: var(--transition);
+}
+
+.round-header:hover { background: linear-gradient(90deg, rgba(45,26,80,0.5) 0%, transparent 100%); }
+
+.round-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.round-name {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+}
+
+.round-section.active .round-name  { color: var(--purple-bright); }
+.round-section.complete .round-name { color: var(--gold); }
+
+.round-check {
+  font-size: 14px;
+  display: none;
+}
+
+.round-section.complete .round-check { display: inline; }
+
+.round-advancers-preview {
+  font-size: 11px;
+  color: var(--gold);
+  font-family: 'Crimson Text', serif;
+  font-style: italic;
+  display: none;
+}
+
+.round-section.complete .round-advancers-preview { display: block; }
+
+.round-toggle {
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: transform var(--transition);
+}
+
+.round-section.expanded .round-toggle { transform: rotate(180deg); }
+
+.round-body {
+  display: none;
+  padding: 0 12px 12px;
+}
+
+.round-section.expanded .round-body { display: block; }
+
+/* ============================================================
+   POD CARDS
+   ============================================================ */
+.pod-card {
+  margin-top: 10px;
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  background: rgba(10,10,20,0.5);
+  overflow: hidden;
+}
+
+.pod-header {
+  padding: 8px 12px;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  background: rgba(20,15,40,0.5);
+  border-bottom: 1px solid var(--border-dim);
+}
+
+.pod-standings {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.standing-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background var(--transition);
+}
+
+.standing-row:hover { background: rgba(107,63,160,0.1); }
+
+.standing-row.advancing {
+  background: rgba(60,40,10,0.3);
+  border: 1px solid rgba(201,168,76,0.2);
+}
+
+.standing-rank {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.standing-row.advancing .standing-rank { color: var(--gold); }
+
+.standing-name {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.standing-row.advancing .standing-name { color: var(--gold-bright); font-weight: 500; }
+
+.standing-winrate {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  width: 44px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.standing-row.advancing .standing-winrate { color: var(--gold); }
+
+.standing-bar-track {
+  width: 60px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.standing-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--purple), var(--purple-bright));
+  transition: width 0.5s ease;
+}
+
+.standing-row.advancing .standing-bar-fill {
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+}
+
+.advance-marker {
+  font-size: 9px;
+  color: var(--gold);
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   CHAMPIONSHIP SECTION
+   ============================================================ */
+#championship-section {
+  display: none;
+  margin-bottom: 20px;
+}
+
+#championship-section.visible { display: block; }
+
+.championship-card {
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(40,25,5,0.8) 0%, rgba(20,10,30,0.8) 100%);
+  box-shadow: var(--shadow-gold), var(--shadow-card);
+  overflow: hidden;
+  position: relative;
+}
+
+.championship-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--gold), transparent 40%, transparent 60%, var(--gold));
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+.championship-header {
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(90deg, rgba(60,40,10,0.6) 0%, transparent 100%);
+  border-bottom: 1px solid rgba(201,168,76,0.2);
+}
+
+.championship-trophy { font-size: 22px; }
+
+.championship-title {
+  font-family: 'Cinzel', serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--gold-bright);
+}
+
+.championship-subtitle {
+  font-size: 11px;
+  color: var(--gold-dim);
+  font-family: 'Crimson Text', serif;
+}
+
+#champion-banner {
+  display: none;
+  padding: 16px 20px;
+  background: linear-gradient(90deg, rgba(80,50,5,0.6) 0%, rgba(40,25,5,0.3) 100%);
+  border-bottom: 1px solid rgba(201,168,76,0.3);
+}
+
+#champion-banner.visible { display: flex; align-items: center; gap: 10px; }
+
+.champion-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  font-family: 'Cinzel', serif;
+}
+
+.champion-name {
+  font-family: 'Cinzel', serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--gold-bright);
+  text-shadow: 0 0 20px rgba(240,201,106,0.5);
+}
+
+.championship-body { padding: 12px 16px; }
+
+/* ============================================================
+   GAME FEED PANEL
+   ============================================================ */
+#feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feed-entry {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-dim);
+  background: var(--bg-card);
+  transition: var(--transition);
+  animation: slide-in 0.35s cubic-bezier(0.22,1,0.36,1);
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.feed-entry:hover { border-color: var(--border-glow); background: var(--bg-card-hover); }
+
+.feed-entry.win     { border-left: 3px solid var(--green);  background: rgba(20,60,35,0.25); }
+.feed-entry.draw    { border-left: 3px solid var(--yellow); background: rgba(74,58,16,0.25); }
+.feed-entry.timeout { border-left: 3px solid var(--red);   background: rgba(74,16,16,0.25); }
+
+.feed-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.feed-winner {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+  flex: 1;
+  line-height: 1.3;
+}
+
+.feed-entry.win  .feed-winner { color: #6dd89a; }
+.feed-entry.draw .feed-winner { color: var(--yellow); }
+.feed-entry.timeout .feed-winner { color: #e88080; }
+
+.feed-game-num {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border: 1px solid var(--border-dim);
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.feed-meta {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.feed-meta span { display: flex; align-items: center; gap: 4px; }
+
+/* ============================================================
+   DECK SHOWCASE
+   ============================================================ */
+#showcase-section {
+  padding: 20px 28px;
+  border-top: 1px solid var(--border-dim);
+  background: linear-gradient(180deg, rgba(15,12,30,0.5) 0%, rgba(10,10,15,0.8) 100%);
+}
+
+#showcase-section::before {
+  content: '';
+  display: block;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-dim), var(--purple-dim), var(--gold-dim), transparent);
+  margin-bottom: 20px;
+  opacity: 0.5;
+}
+
+.showcase-title {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.showcase-title::before {
+  content: '';
+  width: 3px; height: 14px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--gold), var(--purple));
+  flex-shrink: 0;
+}
+
+#deck-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px;
+}
+
+.deck-card {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-dim);
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: var(--transition);
+  aspect-ratio: 2/3;
+}
+
+.deck-card:hover {
+  border-color: var(--gold-dim);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.7), 0 0 16px rgba(201,168,76,0.15);
+  z-index: 10;
+}
+
+.deck-card.champion-card {
+  border-color: var(--gold);
+  box-shadow: var(--shadow-gold), 0 8px 32px rgba(0,0,0,0.8);
+}
+
+.deck-art {
+  width: 100%;
+  height: 65%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+.deck-card:hover .deck-art { transform: scale(1.05); }
+
+.deck-art-placeholder {
+  width: 100%;
+  height: 65%;
+  background: linear-gradient(135deg, #1a1040 0%, #0d0d25 50%, #1a1040 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  flex-shrink: 0;
+}
+
+.deck-info {
+  padding: 8px 10px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: 35%;
+  overflow: hidden;
+}
+
+.deck-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.deck-commander {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: 'Crimson Text', serif;
+  font-style: italic;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.win-rate-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(10,10,20,0.88);
+  border: 1px solid var(--border-glow);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--purple-bright);
+  backdrop-filter: blur(6px);
+}
+
+.deck-card.champion-card .win-rate-badge {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+}
+
+.champion-crown {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-size: 16px;
+  display: none;
+}
+
+.deck-card.champion-card .champion-crown { display: block; }
+
+/* Tooltip */
+.deck-card .deck-tooltip {
+  position: absolute;
+  inset: 0;
+  background: rgba(10,8,25,0.95);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition);
+  backdrop-filter: blur(8px);
+}
+
+.deck-card:hover .deck-tooltip { opacity: 1; }
+
+.tooltip-title {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gold);
+  border-bottom: 1px solid var(--border-dim);
+  padding-bottom: 6px;
+}
+
+.tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.tooltip-row span:last-child { color: var(--text-primary); font-weight: 500; }
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.empty-icon { font-size: 48px; opacity: 0.4; }
+
+.empty-title {
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.empty-sub { font-size: 12px; color: var(--text-muted); opacity: 0.7; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 900px) {
+  #main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+  }
+
+  #panel-feed {
+    grid-column: 1;
+    border-left: none;
+    border-top: 1px solid var(--border-dim);
+    max-height: 320px;
+  }
+
+  #deck-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+
+  .header-logo { font-size: 16px; }
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+.hidden { display: none !important; }
+.flex-spacer { flex: 1; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ====== HEADER + PROGRESS (sticky together) ====== -->
+  <div id="top-bar">
+  <header id="header">
+    <div class="header-logo"><span>⚔</span>FORGE GAUNTLET</div>
+    <div id="header-round" class="header-round-label hidden">—</div>
+    <div class="header-meta">
+      <div id="status-badge" class="status-badge status-idle">Idle</div>
+      <div class="ws-indicator">
+        <div id="ws-dot" class="ws-dot disconnected"></div>
+        <span id="ws-label">Connecting…</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ====== PROGRESS BAR ====== -->
+  <div id="progress-bar-wrap">
+    <div id="progress-bar-track">
+      <div id="progress-bar-fill"></div>
+    </div>
+    <div id="progress-bar-label">Waiting to start…</div>
+  </div>
+  </div><!-- /#top-bar -->
+
+  <!-- ====== MAIN ====== -->
+  <div id="main">
+
+    <!-- BRACKET PANEL -->
+    <section class="panel" id="panel-bracket">
+      <div class="panel-title">Tournament Bracket</div>
+
+      <!-- Championship (rendered separately at top of bracket) -->
+      <div id="championship-section">
+        <div class="championship-card">
+          <div class="championship-header">
+            <span class="championship-trophy">🏆</span>
+            <div>
+              <div class="championship-title">CHAMPIONSHIP</div>
+              <div class="championship-subtitle">The final battle for supremacy</div>
+            </div>
+          </div>
+          <div id="champion-banner">
+            <span class="champion-label">Champion</span>
+            <span id="champion-name" class="champion-name">—</span>
+          </div>
+          <div class="championship-body" id="championship-body"></div>
+        </div>
+      </div>
+
+      <!-- Rounds -->
+      <div id="rounds-container">
+        <div class="empty-state" id="bracket-empty">
+          <div class="empty-icon">⚔</div>
+          <div class="empty-title">Awaiting Tournament</div>
+          <div class="empty-sub">The bracket will appear once the tournament begins.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEED PANEL -->
+    <section class="panel" id="panel-feed">
+      <div class="panel-title">Live Game Feed</div>
+      <div id="feed-list">
+        <div class="empty-state">
+          <div class="empty-icon">🎲</div>
+          <div class="empty-title">No games yet</div>
+          <div class="empty-sub">Game results will stream in live.</div>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /#main -->
+
+  <!-- ====== DECK SHOWCASE ====== -->
+  <section id="showcase-section">
+    <div class="showcase-title">Deck Showcase</div>
+    <div id="deck-grid">
+      <!-- populated by JS -->
+    </div>
+  </section>
+
+</div><!-- /#app -->
+
+<script>
+/* ============================================================
+   STATE
+   ============================================================ */
+let state = null;
+let ws = null;
+let reconnectTimer = null;
+let reconnectDelay = 1000;
+let feedEntryCount = 0;
+
+/* ============================================================
+   WEBSOCKET
+   ============================================================ */
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const url = `${proto}://${location.host}/ws`;
+
+  setWsStatus('reconnecting', 'Connecting…');
+
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    setWsStatus('connected', 'Live');
+    reconnectDelay = 1000;
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.type === 'ping') return;
+      state = data;
+      render(state);
+    } catch (err) {
+      console.warn('WS parse error', err);
+    }
+  };
+
+  ws.onclose = () => {
+    setWsStatus('disconnected', 'Disconnected');
+    scheduleReconnect();
+  };
+
+  ws.onerror = () => {
+    ws.close();
+  };
+}
+
+function scheduleReconnect() {
+  if (reconnectTimer) return;
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    reconnectDelay = Math.min(reconnectDelay * 1.5, 15000);
+    connectWS();
+  }, reconnectDelay);
+}
+
+function setWsStatus(cls, label) {
+  const dot = document.getElementById('ws-dot');
+  const lbl = document.getElementById('ws-label');
+  dot.className = `ws-dot ${cls}`;
+  lbl.textContent = label;
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function render(s) {
+  renderHeader(s);
+  renderBracket(s);
+  renderFeed(s);
+  renderShowcase(s);
+}
+
+/* ---------- Header ---------- */
+function renderHeader(s) {
+  const badge = document.getElementById('status-badge');
+  const statusMap = {
+    idle:      { cls: 'status-idle',     label: 'Idle' },
+    fetching:  { cls: 'status-fetching', label: 'Fetching Decks' },
+    running:   { cls: 'status-running',  label: 'Running' },
+    complete:  { cls: 'status-complete', label: 'Complete' },
+  };
+  const info = statusMap[s.status] || statusMap.idle;
+  badge.className = `status-badge ${info.cls}`;
+  badge.textContent = info.label;
+
+  const roundLabel = document.getElementById('header-round');
+  if (s.rounds && s.rounds.length > 0) {
+    const active = s.rounds.find(r => !r.complete);
+    const label = active ? active.round_name : (s.championship ? 'Championship' : s.rounds[s.rounds.length-1].round_name);
+    roundLabel.textContent = label;
+    roundLabel.classList.remove('hidden');
+  } else {
+    roundLabel.classList.add('hidden');
+  }
+
+  // Progress bar
+  const fill = document.getElementById('progress-bar-fill');
+  const lbl  = document.getElementById('progress-bar-label');
+  const pct  = s.progress_pct || 0;
+  const done = s.games_completed || 0;
+  const total = s.total_games_expected || 0;
+
+  fill.style.width = pct + '%';
+
+  if (s.status === 'idle' || total === 0) {
+    lbl.textContent = 'Waiting to start…';
+  } else if (s.status === 'fetching') {
+    lbl.textContent = 'Fetching decks…';
+  } else if (s.status === 'complete') {
+    lbl.textContent = `Complete — ${total} games played`;
+  } else {
+    lbl.textContent = `${done} / ${total} games (${pct}%)`;
+  }
+}
+
+/* ---------- Bracket ---------- */
+function renderBracket(s) {
+  const container = document.getElementById('rounds-container');
+  const empty = document.getElementById('bracket-empty');
+
+  // Championship section
+  const champSection = document.getElementById('championship-section');
+  if (s.championship) {
+    champSection.classList.add('visible');
+    renderChampionship(s);
+  } else {
+    champSection.classList.remove('visible');
+  }
+
+  if (!s.rounds || s.rounds.length === 0) {
+    empty.style.display = '';
+    // Remove old round sections
+    container.querySelectorAll('.round-section').forEach(el => el.remove());
+    return;
+  }
+  empty.style.display = 'none';
+
+  s.rounds.forEach((round, idx) => {
+    const id = `round-${sanitizeId(round.round_name)}`;
+    let section = document.getElementById(id);
+
+    const isComplete = round.complete;
+    const isActive = !isComplete && (idx === s.rounds.findIndex(r => !r.complete));
+
+    if (!section) {
+      section = document.createElement('div');
+      section.id = id;
+      section.className = 'round-section';
+      section.innerHTML = buildRoundHTML(round);
+      container.appendChild(section);
+      // Toggle expand
+      section.querySelector('.round-header').addEventListener('click', () => {
+        section.classList.toggle('expanded');
+      });
+    } else {
+      // Update inner content
+      section.innerHTML = buildRoundHTML(round);
+      section.querySelector('.round-header').addEventListener('click', () => {
+        section.classList.toggle('expanded');
+      });
+    }
+
+    // Set state classes
+    section.classList.toggle('active', isActive);
+    section.classList.toggle('complete', isComplete);
+    section.classList.toggle('expanded', isActive || !isComplete);
+  });
+
+  // Remove rounds that no longer exist
+  container.querySelectorAll('.round-section').forEach(el => {
+    const name = el.id.replace('round-', '').replace(/-/g, ' ');
+    // crude check: keep if any round matches
+    const still = s.rounds.some(r => sanitizeId(r.round_name) === el.id.replace('round-', ''));
+    if (!still) el.remove();
+  });
+}
+
+function buildRoundHTML(round) {
+  const advStr = round.complete && round.advancers.length
+    ? `Advancers: ${round.advancers.slice(0,3).join(', ')}${round.advancers.length > 3 ? '…' : ''}`
+    : '';
+  return `
+    <div class="round-header">
+      <div class="round-title-group">
+        <span class="round-name">${esc(round.round_name)}</span>
+        <span class="round-check">✓</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="round-advancers-preview">${esc(advStr)}</span>
+        <span class="round-toggle">▼</span>
+      </div>
+    </div>
+    <div class="round-body">
+      ${round.pods.map((pod, i) => buildPodHTML(pod, round.advancers)).join('')}
+    </div>
+  `;
+}
+
+function buildPodHTML(pod, advancers) {
+  const sorted = sortedStandings(pod.standings, pod.deck_names);
+  const advancerSet = new Set(advancers || []);
+  const rows = sorted.map((item, rank) => {
+    const advancing = rank < pod.advance_n || advancerSet.has(item.name);
+    const wr = item.s.win_rate || 0;
+    return `
+      <div class="standing-row ${advancing ? 'advancing' : ''}">
+        <span class="standing-rank">${rank+1}</span>
+        <span class="standing-name" title="${esc(item.name)}">${esc(item.name)}</span>
+        <span class="standing-winrate">${wr.toFixed(1)}%</span>
+        <div class="standing-bar-track">
+          <div class="standing-bar-fill" style="width:${Math.min(wr,100)}%"></div>
+        </div>
+        ${advancing ? '<span class="advance-marker">→</span>' : ''}
+      </div>`;
+  }).join('');
+  return `
+    <div class="pod-card">
+      <div class="pod-header">${esc(pod.pod_name)}</div>
+      <div class="pod-standings">${rows || '<div style="padding:8px;color:var(--text-muted);font-size:11px;">Waiting…</div>'}</div>
+    </div>`;
+}
+
+/* ---------- Championship ---------- */
+function renderChampionship(s) {
+  const champ = s.championship;
+  const body = document.getElementById('championship-body');
+  body.innerHTML = buildPodHTML(champ, champ.complete ? [sortedStandings(champ.standings, champ.deck_names)[0]?.name] : []);
+
+  const banner = document.getElementById('champion-banner');
+  const nameEl = document.getElementById('champion-name');
+  if (s.champion) {
+    banner.classList.add('visible');
+    nameEl.textContent = s.champion;
+  } else {
+    banner.classList.remove('visible');
+  }
+}
+
+/* ---------- Feed ---------- */
+let lastFeedLength = 0;
+
+function renderFeed(s) {
+  if (!s.game_feed || s.game_feed.length === 0) return;
+
+  const list = document.getElementById('feed-list');
+
+  // If feed shrank or reset, clear
+  if (s.game_feed.length < lastFeedLength) {
+    list.innerHTML = '';
+    lastFeedLength = 0;
+  }
+
+  // Only add new entries
+  const newEntries = s.game_feed.slice(lastFeedLength);
+  lastFeedLength = s.game_feed.length;
+
+  newEntries.forEach(line => {
+    const entry = parseFeedLine(line);
+    const el = buildFeedEntry(entry);
+    list.insertBefore(el, list.firstChild);
+    // Limit DOM nodes
+    while (list.children.length > 60) list.removeChild(list.lastChild);
+  });
+}
+
+function parseFeedLine(line) {
+  // Try to extract info from Forge output lines like:
+  // "  Game Result: Game 3 ended in 45000 ms. DeckName has won! (turn 12)"
+  const winMatch = line.match(/Game\s+(\d+)\s+ended\s+in\s+(\d+)\s+ms\.\s+(.+?)\s+has won!.*?(?:\(turn (\d+)\))?/i);
+  if (winMatch) {
+    return {
+      type: 'win',
+      game: parseInt(winMatch[1]),
+      ms: parseInt(winMatch[2]),
+      winner: winMatch[3].replace(/^Ai\(\d+\)-/, ''),
+      turn: winMatch[4] ? parseInt(winMatch[4]) : null,
+    };
+  }
+  const drawMatch = line.match(/Game\s+(\d+)\s+ended\s+in\s+a\s+Draw!\s+Took\s+(\d+)\s+ms/i);
+  if (drawMatch) {
+    return {
+      type: 'draw',
+      game: parseInt(drawMatch[1]),
+      ms: parseInt(drawMatch[2]),
+      winner: null,
+      turn: null,
+    };
+  }
+  if (/timeout/i.test(line)) {
+    return { type: 'timeout', game: null, ms: null, winner: null, turn: null };
+  }
+  return { type: 'win', game: null, ms: null, winner: line.trim(), turn: null };
+}
+
+function buildFeedEntry(entry) {
+  const el = document.createElement('div');
+  el.className = `feed-entry ${entry.type}`;
+  const secs = entry.ms != null ? (entry.ms / 1000).toFixed(1) + 's' : '—';
+  const gameLabel = entry.game != null ? `Game ${entry.game}` : 'Game';
+  let winnerText, meta;
+  if (entry.type === 'win') {
+    winnerText = `${esc(entry.winner || '?')} wins!`;
+    meta = `<span>⏱ ${secs}</span>${entry.turn ? `<span>Turn ${entry.turn}</span>` : ''}`;
+  } else if (entry.type === 'draw') {
+    winnerText = 'Draw';
+    meta = `<span>⏱ ${secs}</span>`;
+  } else {
+    winnerText = 'Timeout';
+    meta = '';
+  }
+  el.innerHTML = `
+    <div class="feed-top">
+      <span class="feed-winner">${winnerText}</span>
+      <span class="feed-game-num">${gameLabel}</span>
+    </div>
+    <div class="feed-meta">${meta}</div>
+  `;
+  return el;
+}
+
+/* ---------- Deck Showcase ---------- */
+function renderShowcase(s) {
+  const grid = document.getElementById('deck-grid');
+  if (!s.decks || Object.keys(s.decks).length === 0) return;
+
+  // Build win rate map from all pods + championship
+  const deckStats = {};
+  (s.rounds || []).forEach(round => {
+    (round.pods || []).forEach(pod => {
+      Object.entries(pod.standings || {}).forEach(([name, stat]) => {
+        if (!deckStats[name]) deckStats[name] = { wins: 0, total: 0, draws: 0 };
+        deckStats[name].wins += stat.wins || 0;
+        deckStats[name].total += stat.total_games || 0;
+        deckStats[name].draws += stat.draws || 0;
+      });
+    });
+  });
+  if (s.championship) {
+    Object.entries(s.championship.standings || {}).forEach(([name, stat]) => {
+      if (!deckStats[name]) deckStats[name] = { wins: 0, total: 0, draws: 0 };
+      deckStats[name].wins += stat.wins || 0;
+      deckStats[name].total += stat.total_games || 0;
+      deckStats[name].draws += stat.draws || 0;
+    });
+  }
+
+  const deckNames = Object.keys(s.decks);
+
+  // Render / update each card
+  deckNames.forEach(name => {
+    const info = s.decks[name];
+    const stats = deckStats[name] || { wins: 0, total: 0, draws: 0 };
+    const wr = stats.total > 0 ? (stats.wins / stats.total * 100).toFixed(1) : '—';
+    const isChamp = s.champion === name;
+
+    const existingId = `deck-card-${sanitizeId(name)}`;
+    let card = document.getElementById(existingId);
+    const isNew = !card;
+
+    if (!card) {
+      card = document.createElement('div');
+      card.id = existingId;
+      card.className = 'deck-card';
+      grid.appendChild(card);
+    }
+
+    card.classList.toggle('champion-card', isChamp);
+
+    const imgSrc = info.scryfall_image_url;
+    const commanders = (info.commander_names || []).join(' + ');
+    const wrDisplay = typeof wr === 'string' && wr !== '—' ? wr + '%' : (wr === '—' ? '—' : wr + '%');
+
+    card.innerHTML = `
+      <span class="champion-crown">👑</span>
+      <span class="win-rate-badge">${wrDisplay}</span>
+      ${imgSrc
+        ? `<img class="deck-art" src="${esc(imgSrc)}" alt="${esc(name)}" loading="lazy">`
+        : `<div class="deck-art-placeholder">🃏</div>`
+      }
+      <div class="deck-info">
+        <div class="deck-name" title="${esc(name)}">${esc(name)}</div>
+        ${commanders ? `<div class="deck-commander">${esc(commanders)}</div>` : ''}
+      </div>
+      <div class="deck-tooltip">
+        <div class="tooltip-title">${esc(name)}</div>
+        ${commanders ? `<div class="tooltip-row"><span>Commander</span><span>${esc(commanders)}</span></div>` : ''}
+        <div class="tooltip-row"><span>Win Rate</span><span>${wrDisplay}</span></div>
+        <div class="tooltip-row"><span>Wins</span><span>${stats.wins}</span></div>
+        <div class="tooltip-row"><span>Games</span><span>${stats.total}</span></div>
+        ${isChamp ? `<div class="tooltip-row"><span>🏆</span><span>Champion!</span></div>` : ''}
+      </div>
+    `;
+  });
+}
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function sortedStandings(standings, deckNames) {
+  const names = deckNames || Object.keys(standings || {});
+  return names
+    .map(name => ({ name, s: (standings || {})[name] || {} }))
+    .sort((a, b) => (b.s.win_rate || 0) - (a.s.win_rate || 0));
+}
+
+function sanitizeId(str) {
+  return (str || '').toLowerCase().replace(/[^a-z0-9]/g, '-');
+}
+
+function esc(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+// Initial fetch so the page works even if WS hasn't connected
+fetch('/api/state')
+  .then(r => r.json())
+  .then(data => { state = data; render(data); })
+  .catch(() => {});
+
+connectWS();
+</script>
+</body>
+</html>

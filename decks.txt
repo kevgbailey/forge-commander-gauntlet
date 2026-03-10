@@ -1,0 +1,37 @@
+# Paste Archidekt deck URLs below, one per line.
+# Lines starting with # are ignored.
+https://archidekt.com/decks/17553552/lets_beat_him_to_death_with_hammers
+https://archidekt.com/decks/14540687/silvar
+https://archidekt.com/decks/16257940/the_blunderbuss
+https://archidekt.com/decks/16259128/zurgo_myriad
+https://archidekt.com/decks/5005670/2_cant_block_this
+https://archidekt.com/decks/16989134/7_have_fun_storming_the_castle_with_robots
+https://archidekt.com/decks/5714358/3_hungry_detectives
+https://archidekt.com/decks/4279849/1_life_is_a_scryway
+https://archidekt.com/decks/16232402/mushroom_king
+https://archidekt.com/decks/16233022/shiko_and_also_narset
+https://archidekt.com/decks/11022598/draw_two_win
+https://archidekt.com/decks/9079899/niko_niko
+https://archidekt.com/decks/5969200/4_john_before_damage_benton
+https://archidekt.com/decks/6482039/5_bring_out_your_dead
+https://archidekt.com/decks/13178001/group_mug
+https://archidekt.com/decks/5283954/this_deck_rocks
+https://archidekt.com/decks/9692286/led_zeppelin_2
+https://archidekt.com/decks/11160468/jyoti_and_the_forest_dryads
+https://archidekt.com/decks/10162473/edward_kenway_treasure_crews
+https://archidekt.com/decks/19177894/vial_smasher_and_sengir
+https://archidekt.com/decks/14242353/ezrim_the_truth_hurts
+https://archidekt.com/decks/17227665/just_a_bunch_of_coins
+https://archidekt.com/decks/17227576/mana_rock_voltron
+https://archidekt.com/decks/7765886/simic_durnan
+https://archidekt.com/decks/7039360/myrkul_slivers
+https://archidekt.com/decks/14788100/doc_ock
+https://archidekt.com/decks/15217571/bald_tribal
+https://archidekt.com/decks/10323503/kresh
+https://archidekt.com/decks/9882530
+https://archidekt.com/decks/9898334/etali_my_love
+https://archidekt.com/decks/9181198/rendmaw
+https://archidekt.com/decks/17185656/9_ten_thousand_things
+https://archidekt.com/decks/17493352/8_the_royal_syphon
+https://archidekt.com/decks/19649849/mimimultimutatableplasm
+https://archidekt.com/decks/18124388/mono_white_but_fun

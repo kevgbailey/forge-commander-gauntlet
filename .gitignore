@@ -1,0 +1,14 @@
+# Environment — contains local paths, never commit
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Forge source — clone separately or add as a submodule
+forge/
+
+# Forge user data
+*.dck
