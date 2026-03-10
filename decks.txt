@@ -16,7 +16,7 @@ https://archidekt.com/decks/5969200/4_john_before_damage_benton
 https://archidekt.com/decks/6482039/5_bring_out_your_dead
 https://archidekt.com/decks/13178001/group_mug
 https://archidekt.com/decks/5283954/this_deck_rocks
-https://archidekt.com/decks/9692286/led_zeppelin_2
+# https://archidekt.com/decks/9692286/led_zeppelin_2
 https://archidekt.com/decks/11160468/jyoti_and_the_forest_dryads
 https://archidekt.com/decks/10162473/edward_kenway_treasure_crews
 https://archidekt.com/decks/19177894/vial_smasher_and_sengir
@@ -25,10 +25,10 @@ https://archidekt.com/decks/17227665/just_a_bunch_of_coins
 https://archidekt.com/decks/17227576/mana_rock_voltron
 https://archidekt.com/decks/7765886/simic_durnan
 https://archidekt.com/decks/7039360/myrkul_slivers
-https://archidekt.com/decks/14788100/doc_ock
+# https://archidekt.com/decks/14788100/doc_ock
 https://archidekt.com/decks/15217571/bald_tribal
-https://archidekt.com/decks/10323503/kresh
-https://archidekt.com/decks/9882530
+# https://archidekt.com/decks/10323503/kresh
+# https://archidekt.com/decks/9882530
 https://archidekt.com/decks/9898334/etali_my_love
 https://archidekt.com/decks/9181198/rendmaw
 https://archidekt.com/decks/17185656/9_ten_thousand_things

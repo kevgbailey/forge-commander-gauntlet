@@ -119,9 +119,23 @@ class TournamentState:
         deck_names: list[str],
         advance_n: int,
     ) -> LivePod:
-        """Find or create a LivePod inside the named round. Creates the round if missing."""
+        """Find or create a LivePod inside the named round. Creates the round if missing.
+        Championship pods are routed to self.championship instead of self.rounds."""
         with self._lock:
-            # Find the round
+            if round_name == "Championship":
+                if self.championship is not None:
+                    return self.championship
+                standings = {
+                    name: {"wins": 0, "losses": 0, "draws": 0, "total_games": 0, "win_rate": 0.0}
+                    for name in deck_names
+                }
+                pod = LivePod(pod_name="Championship", deck_names=deck_names,
+                              standings=standings, advance_n=advance_n)
+                self.championship = pod
+                self._broadcast()
+                return pod
+
+            # Regular round pod
             live_round = None
             for r in self.rounds:
                 if r.round_name == round_name:
@@ -131,12 +145,10 @@ class TournamentState:
                 live_round = LiveRound(round_name=round_name)
                 self.rounds.append(live_round)
 
-            # Find the pod
             for pod in live_round.pods:
                 if pod.pod_name == pod_name:
                     return pod
 
-            # Create empty standings
             standings = {
                 name: {"wins": 0, "losses": 0, "draws": 0, "total_games": 0, "win_rate": 0.0}
                 for name in deck_names
@@ -159,14 +171,20 @@ class TournamentState:
         complete: bool = False,
     ) -> None:
         with self._lock:
-            for r in self.rounds:
-                if r.round_name == round_name:
-                    for pod in r.pods:
-                        if pod.pod_name == pod_name:
-                            pod.standings = standings
-                            pod.complete = complete
-                            break
-                    break
+            # Championship is stored separately, not inside self.rounds
+            if round_name == "Championship":
+                if self.championship is not None:
+                    self.championship.standings = standings
+                    self.championship.complete = complete
+            else:
+                for r in self.rounds:
+                    if r.round_name == round_name:
+                        for pod in r.pods:
+                            if pod.pod_name == pod_name:
+                                pod.standings = standings
+                                pod.complete = complete
+                                break
+                        break
             self._broadcast()
 
     def complete_round(self, round_name: str, advancers: list[str]) -> None:
