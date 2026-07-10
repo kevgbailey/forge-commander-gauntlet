@@ -12,3 +12,4 @@ forge/
 
 # Forge user data
 *.dck
+game_logs/

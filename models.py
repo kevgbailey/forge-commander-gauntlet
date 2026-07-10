@@ -26,6 +26,7 @@ class GameResult:
     winner: Optional[str]  # None for draws
     duration_ms: int
     is_draw: bool
+    win_method: str = ""  # e.g. "combat/life", "commander damage", "spell: Thassa's Oracle"
 
 
 @dataclass
@@ -46,6 +47,7 @@ class PodMatchResult:
     draws: int
     total_games: int
     game_results: list[GameResult] = field(default_factory=list)
+    win_methods: dict[str, dict[str, int]] = field(default_factory=dict)  # deck -> method -> count
 
 
 @dataclass

@@ -1220,15 +1220,20 @@ function renderFeed(s) {
 
 function parseFeedLine(line) {
   // Try to extract info from Forge output lines like:
-  // "  Game Result: Game 3 ended in 45000 ms. DeckName has won! (turn 12)"
-  const winMatch = line.match(/Game\s+(\d+)\s+ended\s+in\s+(\d+)\s+ms\.\s+(.+?)\s+has won!.*?(?:\(turn (\d+)\))?/i);
+  // "  Game Result: Game 3 ended in 45000 ms. DeckName has won! (turn 12) — life to 0 ×3"
+  const turnMatch = line.match(/\(turn (\d+)\)/i);
+  const turn = turnMatch ? parseInt(turnMatch[1]) : null;
+  const methodMatch = line.match(/—\s*(.+)$/);
+  const method = methodMatch ? methodMatch[1].trim() : null;
+  const winMatch = line.match(/Game\s+(\d+)\s+ended\s+in\s+(\d+)\s+ms\.\s+(.+?)\s+has won!/i);
   if (winMatch) {
     return {
       type: 'win',
       game: parseInt(winMatch[1]),
       ms: parseInt(winMatch[2]),
       winner: winMatch[3].replace(/^Ai\(\d+\)-/, ''),
-      turn: winMatch[4] ? parseInt(winMatch[4]) : null,
+      turn: turn,
+      method: method,
     };
   }
   const drawMatch = line.match(/Game\s+(\d+)\s+ended\s+in\s+a\s+Draw!\s+Took\s+(\d+)\s+ms/i);
@@ -1238,13 +1243,14 @@ function parseFeedLine(line) {
       game: parseInt(drawMatch[1]),
       ms: parseInt(drawMatch[2]),
       winner: null,
-      turn: null,
+      turn: turn,
+      method: method,
     };
   }
   if (/timeout/i.test(line)) {
-    return { type: 'timeout', game: null, ms: null, winner: null, turn: null };
+    return { type: 'timeout', game: null, ms: null, winner: null, turn: null, method: null };
   }
-  return { type: 'win', game: null, ms: null, winner: line.trim(), turn: null };
+  return { type: 'win', game: null, ms: null, winner: line.trim(), turn: null, method: null };
 }
 
 function buildFeedEntry(entry) {
@@ -1255,10 +1261,10 @@ function buildFeedEntry(entry) {
   let winnerText, meta;
   if (entry.type === 'win') {
     winnerText = `${esc(entry.winner || '?')} wins!`;
-    meta = `<span>⏱ ${secs}</span>${entry.turn ? `<span>Turn ${entry.turn}</span>` : ''}`;
+    meta = `<span>⏱ ${secs}</span>${entry.turn ? `<span>Turn ${entry.turn}</span>` : ''}${entry.method ? `<span>⚔ ${esc(entry.method)}</span>` : ''}`;
   } else if (entry.type === 'draw') {
     winnerText = 'Draw';
-    meta = `<span>⏱ ${secs}</span>`;
+    meta = `<span>⏱ ${secs}</span>${entry.method ? `<span>⚔ ${esc(entry.method)}</span>` : ''}`;
   } else {
     winnerText = 'Timeout';
     meta = '';

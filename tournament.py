@@ -14,6 +14,7 @@ Tournament format:
 
 import argparse
 import math
+import os
 import random
 import sys
 import time
@@ -172,6 +173,19 @@ def print_pod_results(pod_result: PodResult, advance_n: int = 0) -> None:
         headers=["Rank", "Deck Name", "Win Rate", "W", "L", "D", "Games"],
         tablefmt="simple",
     ))
+
+    if pod_result.pod_match and pod_result.pod_match.win_methods:
+        lines = []
+        for name, _ in sorted_decks:
+            methods = pod_result.pod_match.win_methods.get(name) or {}
+            if methods:
+                breakdown = ", ".join(
+                    f"{m} ×{c}" for m, c in sorted(methods.items(), key=lambda x: -x[1])
+                )
+                lines.append(f"    {name}: {breakdown}")
+        if lines:
+            print("\n  How the wins happened:")
+            print("\n".join(lines))
 
 
 def load_urls(args: argparse.Namespace) -> list[str]:
@@ -339,7 +353,13 @@ def plan_rounds(num_decks: int) -> list[str]:
 
 def run_tournament(args: argparse.Namespace) -> None:
     load_dotenv()
-    engine = ForgeEngine(max_workers=args.workers)
+    log_dir = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "game_logs",
+        time.strftime("%Y%m%d_%H%M%S"),
+    )
+    engine = ForgeEngine(max_workers=args.workers, log_dir=log_dir)
+    print(f"Game logs: {log_dir}")
 
     args.urls = load_urls(args)
 
