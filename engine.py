@@ -1,10 +1,12 @@
 import io
+import math
 import os
+import random
 import re
 import subprocess
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 from dotenv import load_dotenv
 
@@ -204,8 +206,12 @@ class ForgeEngine:
         round_name: Optional[str] = None,
         pod_name: Optional[str] = None,
         log_file: Optional[str] = None,
+        on_game: Optional[Callable[[Optional[str], str], None]] = None,
     ) -> PodMatchResult:
-        """Run one JVM simulating a share of a pod's games."""
+        """Run one JVM simulating a share of a pod's games.
+
+        If on_game is given it is called as on_game(winner_or_None, feed_line)
+        per finished game and replaces the default state updates."""
         cmd = self._build_command(deck_files, num_games, clock_timeout)
         process_timeout = num_games * clock_timeout + 120
 
@@ -220,7 +226,8 @@ class ForgeEngine:
         stdout_buf = io.StringIO()
         stderr_buf = io.StringIO()
         last_turn = [0]
-        log_fh = open(log_file, "w", encoding="utf-8") if log_file else None
+        # line-buffered so saved logs can be analyzed while games run
+        log_fh = open(log_file, "w", encoding="utf-8", buffering=1) if log_file else None
 
         def _stream(src, buf, log=False):
             outcome_lines: list[str] = []
@@ -249,6 +256,10 @@ class ForgeEngine:
                 method_info = f" — {method}" if method else ""
                 feed_line = f"{line.rstrip()}{turn_info}{method_info}"
                 print(f"  {feed_line}", flush=True)
+                if on_game is not None:
+                    winner = _strip_ai_prefix(win_match.group(3)) if win_match else None
+                    on_game(winner, feed_line)
+                    continue
                 if state is None:
                     continue
 
@@ -379,6 +390,122 @@ class ForgeEngine:
             state.update_pod_standings(round_name, pod_name, final, complete=True)
 
         return result
+
+    def run_league(
+        self,
+        decks: list[tuple[str, str]],
+        num_games: int = 1000,
+        batch_size: int = 10,
+        clock_timeout: int = 120,
+        state: Optional["TournamentState"] = None,
+    ) -> tuple[dict, dict, int]:
+        """Shuffle-league mode: instead of a bracket, pods are re-randomized
+        every round so each deck plays an even share of ~num_games total
+        against a rotating field. Each pod batch is one JVM of batch_size
+        games; batches run through the max_workers pool.
+
+        Returns (standings, win_methods, total_games)."""
+        names = [n for _, n in decks]
+        pods_per_round = math.ceil(len(decks) / 4)
+        games_per_round = pods_per_round * batch_size
+        rounds = max(1, round(num_games / games_per_round))
+        total_games = rounds * games_per_round
+
+        schedule = []
+        for r in range(1, rounds + 1):
+            order = list(decks)
+            random.shuffle(order)
+            pods = [order[i : i + 4] for i in range(0, len(order), 4)]
+            for p, pod in enumerate(pods, 1):
+                if len(pod) >= 2:
+                    schedule.append((r, p, pod))
+
+        print(
+            f"  Shuffle league: {len(decks)} decks, {rounds} rounds × "
+            f"{pods_per_round} pods × {batch_size} games = {total_games} games "
+            f"(~{total_games * 4 // len(decks)} per deck)"
+        )
+
+        round_label = "Shuffle League"
+        pod_label = "League Standings"
+        lock = threading.Lock()
+        tally = {n: {"wins": 0, "draws": 0, "games": 0} for n in names}
+
+        def league_standings() -> dict:
+            return {
+                n: {
+                    "wins": t["wins"],
+                    "losses": t["games"] - t["wins"] - t["draws"],
+                    "draws": t["draws"],
+                    "total_games": t["games"],
+                    "win_rate": t["wins"] / t["games"] * 100 if t["games"] else 0.0,
+                }
+                for n, t in tally.items()
+            }
+
+        if state is not None:
+            state.set_total_games_expected(total_games)
+            state.find_or_create_pod(round_label, pod_label, names, advance_n=0)
+            state.set_status("running")
+
+        def make_on_game(pod_names: list[str]):
+            def on_game(winner: Optional[str], feed_line: str) -> None:
+                with lock:
+                    for n in pod_names:
+                        tally[n]["games"] += 1
+                        if winner is None:
+                            tally[n]["draws"] += 1
+                    if winner in tally:
+                        tally[winner]["wins"] += 1
+                    standings = league_standings()
+                if state is not None:
+                    state.update_pod_standings(round_label, pod_label, standings)
+                    state.add_game_result(feed_line)
+            return on_game
+
+        partials: list[PodMatchResult] = []
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = []
+            for r, p, pod in schedule:
+                files = [f for f, _ in pod]
+                pod_names = [n for _, n in pod]
+                log_file = None
+                if self.log_dir:
+                    log_file = os.path.join(self.log_dir, f"league_r{r:03d}_p{p}.log")
+                futures.append(executor.submit(
+                    self._run_sim_shard,
+                    files, pod_names, batch_size, clock_timeout,
+                    {"wins": {n: 0 for n in pod_names}, "draws": 0, "games": 0},
+                    threading.Lock(), None, None, None,
+                    log_file, make_on_game(pod_names),
+                ))
+            for future in as_completed(futures):
+                try:
+                    partials.append(future.result())
+                except Exception as e:
+                    print(f"  ERROR in league batch: {e}")
+
+        # Authoritative final tally from parsed shard results (covers games
+        # the live stream may have missed, e.g. shard timeouts)
+        final = {n: {"wins": 0, "draws": 0, "games": 0} for n in names}
+        win_methods: dict[str, dict[str, int]] = {n: {} for n in names}
+        for pm in partials:
+            for n in pm.deck_names:
+                if n in final:
+                    final[n]["games"] += pm.total_games
+                    final[n]["draws"] += pm.draws
+                    final[n]["wins"] += pm.deck_wins.get(n, 0)
+            for n, methods in pm.win_methods.items():
+                for m, c in methods.items():
+                    win_methods.setdefault(n, {})[m] = win_methods.get(n, {}).get(m, 0) + c
+
+        with lock:
+            tally.update(final)
+            standings = league_standings()
+        if state is not None:
+            state.update_pod_standings(round_label, pod_label, standings, complete=True)
+
+        return standings, win_methods, total_games
 
     def run_pods_parallel(
         self,

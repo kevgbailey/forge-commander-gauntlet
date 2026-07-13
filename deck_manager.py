@@ -41,10 +41,19 @@ def fetch_archidekt_deck(deck_id: int, max_retries: int = 3) -> DeckList:
     cards_sideboard = []
     cards_commander = []
 
-    for card_entry in data.get("cards", []):
-        categories = card_entry.get("categories", [])
+    # Categories flagged includedInDeck=False (Maybeboard, "Considering",
+    # custom upgrade lists, ...) are not part of the playable deck
+    excluded_categories = {"Maybeboard"}
+    for cat in data.get("categories") or []:
+        if cat.get("includedInDeck") is False and cat.get("name"):
+            excluded_categories.add(cat["name"])
 
-        # Skip maybeboard cards
+    for card_entry in data.get("cards", []):
+        categories = card_entry.get("categories") or []
+
+        # A card's first category is its primary one and decides inclusion
+        if categories and categories[0] in excluded_categories:
+            continue
         if "Maybeboard" in categories:
             continue
 

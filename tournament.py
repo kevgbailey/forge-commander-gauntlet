@@ -16,6 +16,7 @@ import argparse
 import math
 import os
 import random
+import subprocess
 import sys
 import time
 
@@ -58,7 +59,19 @@ def parse_args() -> argparse.Namespace:
         "--games", "-n",
         type=int,
         default=100,
-        help="Games per pod (default: 100)",
+        help="Games per pod, or total games in --shuffle mode (default: 100)",
+    )
+    parser.add_argument(
+        "--shuffle",
+        action="store_true",
+        help="Shuffle-league mode: no bracket; pods are re-randomized every "
+             "round so each deck plays an even share of --games total games",
+    )
+    parser.add_argument(
+        "--batch",
+        type=int,
+        default=10,
+        help="Games per JVM batch in --shuffle mode (default: 10)",
     )
     parser.add_argument(
         "--workers", "-w",
@@ -351,6 +364,80 @@ def plan_rounds(num_decks: int) -> list[str]:
     return rounds
 
 
+def run_shuffle_league(
+    args: argparse.Namespace,
+    decks: list[tuple[str, str]],
+    engine: "ForgeEngine",
+    state: "TournamentState",
+    log_dir: str,
+) -> None:
+    """Run shuffle-league mode and save results + MVP report next to the logs."""
+    print(f"\n{'=' * 60}")
+    print(f"=== SHUFFLE LEAGUE ({len(decks)} decks, ~{args.games} games) ===")
+    print(f"{'=' * 60}")
+
+    standings, win_methods, total_games = engine.run_league(
+        decks,
+        num_games=args.games,
+        batch_size=args.batch,
+        clock_timeout=args.timeout,
+        state=state,
+    )
+
+    sorted_decks = sorted(
+        standings.items(), key=lambda x: x[1]["win_rate"], reverse=True
+    )
+
+    lines = []
+    lines.append("=== Shuffle League Results ===")
+    lines.append(tabulate(
+        [
+            [rank, name, f"{s['win_rate']:.1f}%", s["wins"], s["losses"], s["draws"], s["total_games"]]
+            for rank, (name, s) in enumerate(sorted_decks, 1)
+        ],
+        headers=["Rank", "Deck Name", "Win Rate", "W", "L", "D", "Games"],
+        tablefmt="simple",
+    ))
+    lines.append("")
+    lines.append("How the wins happened:")
+    for name, _ in sorted_decks:
+        methods = win_methods.get(name) or {}
+        if methods:
+            breakdown = ", ".join(
+                f"{m} ×{c}" for m, c in sorted(methods.items(), key=lambda x: -x[1])
+            )
+            lines.append(f"  {name}: {breakdown}")
+    report = "\n".join(lines)
+    print(f"\n{report}")
+
+    results_path = os.path.join(log_dir, "league_results.txt")
+    with open(results_path, "w", encoding="utf-8") as fh:
+        fh.write(report + "\n")
+
+    # MVP card report from the saved game logs
+    mvp_path = os.path.join(log_dir, "mvp_report.txt")
+    analyzer = os.path.join(os.path.dirname(os.path.abspath(__file__)), "analyze_logs.py")
+    try:
+        proc = subprocess.run(
+            [sys.executable, analyzer, log_dir],
+            capture_output=True, text=True, timeout=300,
+        )
+        with open(mvp_path, "w", encoding="utf-8") as fh:
+            fh.write(proc.stdout)
+        print(f"\n{proc.stdout}")
+    except Exception as e:
+        print(f"MVP analysis failed: {e}")
+
+    champion = sorted_decks[0]
+    state.set_champion(champion[0])
+
+    print(f"{'=' * 60}")
+    print(f"  BEST DECK: {champion[0]} ({champion[1]['win_rate']:.1f}%)")
+    print(f"{'=' * 60}")
+    print(f"\n  Results saved: {results_path}")
+    print(f"  MVP report:    {mvp_path}")
+
+
 def run_tournament(args: argparse.Namespace) -> None:
     load_dotenv()
     log_dir = os.path.join(
@@ -431,6 +518,10 @@ def run_tournament(args: argparse.Namespace) -> None:
         time.sleep(0.1)
 
     try:
+        if args.shuffle:
+            run_shuffle_league(args, decks, engine, state, log_dir)
+            return
+
         rounds = plan_rounds(len(decks))
         state.set_total_games_expected(count_total_games(len(decks), args.games))
 
